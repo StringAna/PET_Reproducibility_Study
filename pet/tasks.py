@@ -199,8 +199,17 @@ class AgnewsProcessor(DataProcessor):
 
         with open(path) as f:
             reader = csv.reader(f, delimiter=',')
+            next(reader)  # Skip header row
             for idx, row in enumerate(reader):
-                label, headline, body = row
+                text, orig_label = row
+                # Convert label from 0-based to 1-based
+                label = str(int(orig_label) + 1)  
+                
+                # Split text into headline and body
+                text_parts = text.split(' - ', 1)
+                headline = text_parts[0]
+                body = text_parts[1] if len(text_parts) > 1 else ""
+                
                 guid = "%s-%s" % (set_type, idx)
                 text_a = headline.replace('\\', ' ')
                 text_b = body.replace('\\', ' ')
