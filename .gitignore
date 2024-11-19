@@ -9,3 +9,4 @@ glue_data/*
 out/*
 venv/*
 data/*
+ag_news_csv/*
