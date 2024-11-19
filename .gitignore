@@ -24,3 +24,4 @@ data/*
 **/*.fls
 **/*.blg
 **/*.bbl
+ag_news_csv/*

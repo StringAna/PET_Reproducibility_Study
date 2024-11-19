@@ -28,6 +28,7 @@ from pet.utils import InputExample, get_verbalization_ids
 
 import log
 from pet import wrapper as wrp
+import re
 
 logger = log.get_logger('root')
 
@@ -258,37 +259,91 @@ class PVP(ABC):
 
 
 class AgnewsPVP(PVP):
+    """Corrected Pattern-Verbalizer Pair for AG News with verified single-token verbalizers"""
+    
+    # Verbalizers carefully chosen to be single tokens across tokenizers
     VERBALIZER = {
-        "1": ["World"],
-        "2": ["Sports"],
-        "3": ["Business"],
-        "4": ["Tech"]
+        "1": ["World", "News", "Global"],     # World news - verified single tokens
+        "2": ["Sports", "Games", "Team"],     # Sports - verified single tokens
+        "3": ["Business", "Trade", "Market"], # Business - verified single tokens
+        "4": ["Tech", "Science", "Research"]  # Technology/Science - verified single tokens
     }
 
     def get_parts(self, example: InputExample) -> FilledPattern:
-
-        text_a = self.shortenable(example.text_a)
-        text_b = self.shortenable(example.text_b)
+        """Create patterns with rich context and better structure."""
+        
+        text_a = self.shortenable(example.text_a)  # headline
+        text_b = self.shortenable(example.text_b)  # body
 
         if self.pattern_id == 0:
-            return [self.mask, ':', text_a, text_b], []
+            # Basic pattern
+            return [text_a, text_b, ' Topic:', self.mask], []
+            
         elif self.pattern_id == 1:
-            return [self.mask, 'News:', text_a, text_b], []
+            # Categorical pattern
+            return ['Category:', self.mask, 'news:', text_a, text_b], []
+            
         elif self.pattern_id == 2:
-            return [text_a, '(', self.mask, ')', text_b], []
+            # Question format
+            return ['What type of news is this?', text_a, text_b, 'It is', self.mask, 'news.'], []
+            
         elif self.pattern_id == 3:
-            return [text_a, text_b, '(', self.mask, ')'], []
+            # Direct classification
+            return [text_a, text_b, 'Type:', self.mask], []
+            
         elif self.pattern_id == 4:
-            return ['[ Category:', self.mask, ']', text_a, text_b], []
-        elif self.pattern_id == 5:
-            return [self.mask, '-', text_a, text_b], []
+            # Topic analysis
+            return ['Topic analysis:', text_a, text_b, 'Category:', self.mask], []
+            
         else:
-            raise ValueError("No pattern implemented for id {}".format(self.pattern_id))
+            raise ValueError(f"No pattern implemented for id {self.pattern_id}")
 
     def verbalize(self, label) -> List[str]:
-        return AgnewsPVP.VERBALIZER[label]
+        """Get verbalizers with verification."""
+        if label not in self.VERBALIZER:
+            raise ValueError(f"No verbalizer defined for label {label}")
+            
+        verbalizers = []
+        for verb in self.VERBALIZER[label]:
+            try:
+                # Verify token is single token
+                token_id = get_verbalization_ids(verb, self.wrapper.tokenizer, force_single_token=True)
+                if isinstance(token_id, int):
+                    verbalizers.append(verb)
+            except AssertionError:
+                continue
+                
+        if not verbalizers:
+            raise ValueError(f"No valid single-token verbalizers found for label {label}")
+            
+        return verbalizers
 
+    def _verify_verbalizers(self):
+        """Verify all verbalizers are single tokens during initialization."""
+        verified_verbalizers = {}
+        for label, verbs in self.VERBALIZER.items():
+            valid_verbs = []
+            for verb in verbs:
+                try:
+                    # Test tokenization
+                    ids = self.wrapper.tokenizer.encode(verb, add_special_tokens=False)
+                    if len(ids) == 1:
+                        valid_verbs.append(verb)
+                except Exception:
+                    continue
+            if valid_verbs:
+                verified_verbalizers[label] = valid_verbs
+                
+        if not all(verified_verbalizers.values()):
+            raise ValueError("Not all labels have valid single-token verbalizers")
+            
+        self.VERBALIZER = verified_verbalizers
 
+    def __init__(self, wrapper, pattern_id: int = 0, verbalizer_file: str = None, seed: int = 42):
+        """Initialize PVP with verbalizer verification."""
+        super().__init__(wrapper, pattern_id, verbalizer_file, seed)
+        self._verify_verbalizers()
+# Add to PVPS dictionary
 class YahooPVP(PVP):
     VERBALIZER = {
         "1": ["Society"],

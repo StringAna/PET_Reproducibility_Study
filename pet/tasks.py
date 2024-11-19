@@ -25,6 +25,7 @@ from typing import List, Dict, Callable
 import log
 from pet import task_helpers
 from pet.utils import InputExample
+import re
 
 logger = log.get_logger('root')
 
@@ -176,7 +177,7 @@ class MnliMismatchedProcessor(MnliProcessor):
 
 
 class AgnewsProcessor(DataProcessor):
-    """Processor for the AG news data set."""
+    """Enhanced processor for the AG news dataset with better preprocessing and data handling."""
 
     def get_train_examples(self, data_dir):
         return self._create_examples(os.path.join(data_dir, "train.csv"), "train")
@@ -185,40 +186,53 @@ class AgnewsProcessor(DataProcessor):
         return self._create_examples(os.path.join(data_dir, "test.csv"), "dev")
 
     def get_test_examples(self, data_dir) -> List[InputExample]:
-        raise NotImplementedError()
+        return self._create_examples(os.path.join(data_dir, "test.csv"), "test")
 
     def get_unlabeled_examples(self, data_dir) -> List[InputExample]:
         return self.get_train_examples(data_dir)
 
     def get_labels(self):
-        return ["1", "2", "3", "4"]
+        """Get the list of labels with more descriptive names."""
+        return ["1", "2", "3", "4"]  # World, Sports, Business, Tech
 
     @staticmethod
     def _create_examples(path: str, set_type: str) -> List[InputExample]:
+        """
+        Enhanced example creation with better text preprocessing and metadata handling.
+        """
         examples = []
 
-        with open(path) as f:
+        with open(path, encoding='utf8') as f:
             reader = csv.reader(f, delimiter=',')
-            next(reader)  # Skip header row
             for idx, row in enumerate(reader):
-                text, orig_label = row
-                # Convert label from 0-based to 1-based
-                label = str(int(orig_label) + 1)  
+                label, headline, body = row
                 
-                # Split text into headline and body
-                text_parts = text.split(' - ', 1)
-                headline = text_parts[0]
-                body = text_parts[1] if len(text_parts) > 1 else ""
+                # Clean and preprocess text
+                headline = headline.strip().replace('\\', ' ')
+                body = body.strip().replace('\\', ' ')
                 
-                guid = "%s-%s" % (set_type, idx)
-                text_a = headline.replace('\\', ' ')
-                text_b = body.replace('\\', ' ')
+                # Remove redundant whitespace
+                headline = ' '.join(headline.split())
+                body = ' '.join(body.split())
+                
+                guid = f"{set_type}-{idx}"
+                
+                # Add metadata to help with pattern creation
+                meta = {
+                    'headline_length': len(headline.split()),
+                    'body_length': len(body.split()),
+                    'has_numbers': bool(re.search(r'\d', headline + body)),
+                    'original_label': label
+                }
 
-                example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label)
+                example = InputExample(guid=guid, 
+                                    text_a=headline,
+                                    text_b=body, 
+                                    label=label,
+                                    meta=meta)
                 examples.append(example)
 
         return examples
-
 
 class YahooAnswersProcessor(DataProcessor):
     """Processor for the Yahoo Answers data set."""
