@@ -17,6 +17,8 @@
 \usepackage{latexsym}
 
 \usepackage{url}
+\usepackage{enumitem} % Required for custom list spacing
+\setlist[itemize]{itemsep=0em} % Applies to all itemize environments
 
 \aclfinalcopy % Uncomment this line for the final submission
 %\def\aclpaperid{***} %  Enter the acl Paper ID here
@@ -40,9 +42,9 @@
   G01436204\\
   \texttt{akumar37@gmu.edu}\\\And
   Third Author \\
-  Ankit Kumar\\ 
-  G01436204\\
-  \texttt{akumar37@gmu.edu}}
+  Homa Haghighi\\ 
+  G01145449\\
+  \texttt{hhaghigh@gmu.edu}}
 
 \date{}
 
@@ -51,30 +53,50 @@
 
 \section{Introduction}
 
-The paper addresses a fundamental challenge in natural language processing: how to effectively train text classification models with very limited labeled data and whether the knowledge contained in pre-trained language models can be leveraged more effectively for few-shot learning by reformulating input examples as cloze-style phrases.
+The paper addresses the challenge of few-shot learning in NLP tasks, where only a small, labeled dataset is available. The research question is:\\
+\textit{How can pre-trained language models (PLMs) like RoBERTa or BERT be adapted to excel at few-shot learning tasks using task-specific patterns and verbalizers? }\\
+The paper's main goal is to explore whether reformulating inputs as cloze-style questions can improve performance on tasks such as text classification and natural language inference (NLI) under low-resource conditions. 
             \subsection{Task / Research Question Description} 
             Core research questions are-\\
             - Can natural language task descriptions be effectively combined with supervised learning to improve few-shot text classification?\\
             - How can we exploit the implicit knowledge in pre-trained language models through carefully designed patterns?\\
             - Is it possible to achieve better performance than standard supervised learning with as few as 10 labeled examples per class?
             \subsection{Motivation \& Limitations of existing work} 
-            The need for this research is driven by practical limitations in current NLP applications-
-            \begin{itemize}
-              \item \textit{Standard supervised learning}: Requires large amounts of labeled training data, performs poorly in few-shot scenarios, and fails to leverage the implicit knowledge in pre-trained language models.
-              \item \textit{Data Augmentation Methods}: These typically need large parallel datasets for techniques like back-translation and may induce noise. It is often computationally expensive.
-              \item \textit{Meta-Learning Approaches}:These require lot of data from related well and even then, it may not generalize well across
+            Existing few-shot learning methods often fail to effectively utilize pre-trained language models due to:
+            \begin{itemize}[topsep=0pt]
+              \item \textit{Lack of Task-Specific Adaptation}:Pre-trained models like BERT are not optimized for cloze-style tasks, which are effective for few-shot learning. 
+              \item \textit{Heavy Dependence on Labeled Data}:Supervised models require large datasets, making them impractical for low-resource scenarios.
             \end{itemize} 
-            \subsection{Proposed Approach} 
-            This paper introduces Pattern-Exploiting Training(PET), a semi-supervised approach that closes the gap between zero-shot and supervised learning. They key idea is to include-\\ 
-            \begin{itemize}
-              \item \textit{Pattern-Verbalizer Pairs (PVPs)}:
+            The proposed approach (PET) addresses these issues by:
+            \begin{itemize}[topsep=0pt]
+              \item Exploiting task descriptions using patterns (templates) and verbalizers (label-to-word mappings). 
+              \item Enhancing semi-supervised training through iterative refinement (iPET), which improves performance by gradually increasing labeled data. 
             \end{itemize}
-            \subsection{Likely challenges and mitigations} 
-            What is hard about this task / research question? What are your contingency plans if the reproduction turns out to be harder than expected or experiments do not go as planned? 
+            \subsection{Proposed Approach} 
+            The core contribution is the Pattern-Exploiting Training (PET) framework: 
+            \begin{itemize}[topsep=0pt]
+              \setlength\itemsep{0em}
+              \item \textit{Pattern and Verbalizer Design}:Reformulates tasks into cloze-style questions, enabling PLMs to better leverage their pre-training knowledge. 
+              \item \textit{Soft Labeling}: Uses the model to annotate unlabeled data with probabilities (soft labels) to augment the training set.
+              \item \textit{iPET}: An iterative method that refines the labeled dataset over multiple training cycles, leading to improved generalization. 
+            \end{itemize}
+            This approach enables few-shot learning by effectively combining human-readable patterns with the capabilities of large pre-trained models. 
+            \subsection{Likely challenges and mitigations}
+            \begin{itemize}
+              \item \textit{Computational Resources}\\Challenge: Training large models demands significant GPU power.
+              \\Mitigation:Start with smaller models and subsets of patterns; use gradient accumulation.
+              \item \textit{Implementation Complexity}\\Challenge:Multi-stage training with intricate interactions.\\
+              Mitigation: Modular design, extensive testing, and single-pattern trials.
+            \end{itemize}
 
 
 \section{Related Work}
 Include 3-4 sentence descriptions of no less than 4 relevant papers (as applicable). Also mention how your work differs from these. Note that prior work should be properly cited in References, e.g., when you use the BERT model \cite{devlin2019bert} you could cite it in this way; if you want to refer to the authors of a certain paper, you should use \texttt{citet}, e.g., "\citet{devlin2019bert} proposed the BERT model." See \url{https://acl-org.github.io/ACLPUB/formatting.html} for instructions.
+\begin{itemize}
+  \item GPT-3 Few-Shot Learning Brown et al., \textit{"Language Models are Few-Shot Learners"}:This paper demonstrates the ability of GPT-3 to perform few-shot tasks using prompt-based learning. Unlike PET, it does not require task-specific fine-tuning, relying entirely on model size and carefully designed prompts. PET differs by using task-specific patterns and fine-tuning for better performance in low-resource settings. 
+  \item T5 Model Raffel et al., \textit{"Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer"}:T5 frames every NLP task as a text-to-text problem. While versatile, it requires fine-tuning on large datasets. PET, in contrast, uses minimal labeled data and focuses on few-shot performance. 
+  \item Meta-Learning Approaches,\textit{Finn et al., "Model-Agnostic Meta-Learning (MAML)"}: MAML trains models to adapt quickly to new tasks with few examples. PET achieves similar goals using patterns and verbalizers, avoiding the need for gradient-based task adaptation.PET differs and uniquely leverages cloze-style questions and semi-supervised learning to combine task-specific insights with pre-trained models, making it more interpretable and efficient for few-shot tasks. 
+\end{itemize}
 
 \section{Experiments}
 
