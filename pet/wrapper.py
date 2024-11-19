@@ -131,13 +131,37 @@ class WrapperConfig(object):
         self.verbalizer_file = verbalizer_file
         self.cache_dir = cache_dir
 
+# Add after WrapperConfig class, before TransformerModelWrapper
+class AGNewsConfig:
+    """Specialized configuration for AG News task"""
+    
+    MIN_SEQ_LENGTH = 512
+    MAX_PATTERNS = 5
+    
+    # Special tokens for enhanced patterns
+    SPECIAL_TOKENS = {
+        '[DATA]', '[REPORT]', '[NEWS]', '[CONTENT]', 
+        '[CLASSIFICATION]', '[TOPIC]', '[END]'
+    }
+    
+    PATTERN_CONFIGS = {
+        0: {"name": "topic", "mask_position": "end", "use_special_tokens": False},
+        1: {"name": "category", "mask_position": "middle", "use_special_tokens": False},
+        2: {"name": "qa_format", "mask_position": "start", "use_special_tokens": False},
+        3: {"name": "markers", "mask_position": "end", "use_special_tokens": True},
+        4: {"name": "analysis", "mask_position": "end", "use_special_tokens": False}
+    }
+
 
 class TransformerModelWrapper:
     """A wrapper around a Transformer-based language model."""
-
     def __init__(self, config: WrapperConfig):
         """Create a new wrapper from the given config."""
         self.config = config
+        
+        # Initialize AG News config if needed
+        self.agnews_config = AGNewsConfig() if config.task_name == 'agnews' else None
+        
         config_class = MODEL_CLASSES[self.config.model_type]['config']
         tokenizer_class = MODEL_CLASSES[self.config.model_type]['tokenizer']
         model_class = MODEL_CLASSES[self.config.model_type][self.config.wrapper_type]
@@ -148,16 +172,19 @@ class TransformerModelWrapper:
 
         self.tokenizer = tokenizer_class.from_pretrained(
             config.model_name_or_path,
-            cache_dir=config.cache_dir if config.cache_dir else None)  # type: PreTrainedTokenizer
+            cache_dir=config.cache_dir if config.cache_dir else None)
+
+        # Handle AG News initialization
+        if self.agnews_config:
+            self._initialize_agnews()
 
         if self.config.model_type == 'gpt2':
             self.tokenizer.pad_token, self.tokenizer.mask_token = self.tokenizer.eos_token, self.tokenizer.eos_token
 
         self.model = model_class.from_pretrained(config.model_name_or_path, config=model_config,
-                                                 cache_dir=config.cache_dir if config.cache_dir else None)
-        #Multi GPU Training
-        n_gpus = torch.cuda.device_count()
-        if n_gpus >1:
+                                                cache_dir=config.cache_dir if config.cache_dir else None)
+        
+        if torch.cuda.device_count() > 1:
             self.model = torch.nn.DataParallel(self.model)
         
         self.preprocessor = PREPROCESSORS[self.config.wrapper_type](self, self.config.task_name, self.config.pattern_id,
@@ -469,16 +496,27 @@ class TransformerModelWrapper:
         return inputs
 
     def mlm_train_step(self, labeled_batch: Dict[str, torch.Tensor],
-                       unlabeled_batch: Optional[Dict[str, torch.Tensor]] = None, lm_training: bool = False,
-                       alpha: float = 0, **_) -> torch.Tensor:
-        """Perform a MLM training step."""
-
+                   unlabeled_batch: Optional[Dict[str, torch.Tensor]] = None, 
+                   lm_training: bool = False,
+                   alpha: float = 0, **_) -> torch.Tensor:
+        """Enhanced MLM training step with AG News support"""
         inputs = self.generate_default_inputs(labeled_batch)
+        
+        # Handle AG News specific attention masking
+        if self.agnews_config and \
+        self.agnews_config.PATTERN_CONFIGS[self.config.pattern_id]["use_special_tokens"]:
+            special_attention_mask = self._get_agnews_attention_mask(inputs['input_ids'])
+            if special_attention_mask is not None:
+                inputs['attention_mask'] = inputs['attention_mask'] * special_attention_mask
+        
         mlm_labels, labels = labeled_batch['mlm_labels'], labeled_batch['labels']
-
         outputs = self.model(**inputs)
+        
         prediction_scores = self.preprocessor.pvp.convert_mlm_logits_to_cls_logits(mlm_labels, outputs[0])
-        loss = nn.CrossEntropyLoss()(prediction_scores.view(-1, len(self.config.label_list)), labels.view(-1))
+        loss = nn.CrossEntropyLoss()(
+            prediction_scores.view(-1, len(self.config.label_list)),
+            labels.view(-1)
+        )
 
         if lm_training:
             lm_inputs = self.generate_default_inputs(unlabeled_batch)
@@ -535,3 +573,48 @@ class TransformerModelWrapper:
         """Perform a sequence classifier evaluation step."""
         inputs = self.generate_default_inputs(batch)
         return self.model(**inputs)[0]
+
+    def _initialize_agnews(self):
+        """Initialize AG News specific configurations"""
+        if hasattr(self, '_agnews_initialized'):
+            return
+            
+        # Set minimum sequence length
+        self.config.max_seq_length = max(
+            self.config.max_seq_length, 
+            self.agnews_config.MIN_SEQ_LENGTH
+        )
+        
+        # Validate pattern ID
+        if self.config.pattern_id >= self.agnews_config.MAX_PATTERNS:
+            logger.warning(f"Pattern ID {self.config.pattern_id} invalid for AG News. Using maximum allowed: {self.agnews_config.MAX_PATTERNS - 1}")
+            self.config.pattern_id = self.agnews_config.MAX_PATTERNS - 1
+            
+        # Add special tokens if needed
+        pattern_config = self.agnews_config.PATTERN_CONFIGS[self.config.pattern_id]
+        if pattern_config["use_special_tokens"]:
+            special_tokens_dict = {
+                "additional_special_tokens": list(self.agnews_config.SPECIAL_TOKENS)
+            }
+            num_added = self.tokenizer.add_special_tokens(special_tokens_dict)
+            if num_added > 0:
+                self.model.resize_token_embeddings(len(self.tokenizer))
+        
+        # Cache special token ids
+        self.agnews_config.special_token_ids = {
+            self.tokenizer.convert_tokens_to_ids(token)
+            for token in self.agnews_config.SPECIAL_TOKENS
+        }
+        
+        self._agnews_initialized = True
+
+    def _get_agnews_attention_mask(self, input_ids: torch.Tensor) -> Optional[torch.Tensor]:
+        """Create special attention mask for AG News tokens"""
+        if not hasattr(self.agnews_config, 'special_token_ids'):
+            return None
+            
+        mask = torch.ones_like(input_ids, dtype=torch.float32)
+        for token_id in self.agnews_config.special_token_ids:
+            mask *= (input_ids != token_id).float()
+        return mask
+        
