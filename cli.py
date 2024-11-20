@@ -18,7 +18,7 @@ one of the supported tasks and datasets.
 import argparse
 import os
 from typing import Tuple
-
+import json
 import torch
 
 from pet.tasks import PROCESSORS, load_examples, UNLABELED_SET, TRAIN_SET, DEV_SET, TEST_SET, METRICS, DEFAULT_METRICS
@@ -26,6 +26,8 @@ from pet.utils import eq_div
 from pet.wrapper import WRAPPER_TYPES, MODEL_CLASSES, SEQUENCE_CLASSIFIER_WRAPPER, WrapperConfig
 import pet
 import log
+from pet.wrapper import TransformerModelWrapper
+
 
 logger = log.get_logger('root')
 
@@ -213,6 +215,12 @@ def main():
                         help="Whether to use priming for evaluation")
     parser.add_argument("--eval_set", choices=['dev', 'test'], default='dev',
                         help="Whether to perform evaluation on the dev set or the test set")
+    parser.add_argument("--evaluate_robustness", action="store_true",
+                    help="Whether to perform robustness evaluation")
+    parser.add_argument("--perturbation_types", nargs="+", default=None,
+                        help="Types of perturbations to use for robustness evaluation")
+    parser.add_argument("--few_shot_examples", nargs="+", type=int, default=[10, 20, 50, 100],
+                    help="Number of examples per class for few-shot evaluation")
 
     args = parser.parse_args()
     logger.info("Parameters: {}".format(args))
@@ -261,6 +269,33 @@ def main():
                       reduction=args.reduction, train_data=train_data, unlabeled_data=unlabeled_data,
                       eval_data=eval_data, do_train=args.do_train, do_eval=args.do_eval,
                       no_distillation=args.no_distillation, seed=args.seed)
+        if args.evaluate_robustness:
+            logger.info("Starting robustness evaluation...")
+            model_path = os.path.join('output_hopper/output/agnews_pet/final/p0-i0')
+            wrapper = TransformerModelWrapper.from_pretrained(model_path)
+            wrapper.model.to(args.device)
+            
+            robustness_metrics = wrapper.evaluate_robustness(
+                eval_data=eval_data,
+                perturbation_types=args.perturbation_types
+            )
+    
+            # Save results
+            results_dir = os.path.join('robustness/final', 'results')
+            os.makedirs(results_dir, exist_ok=True)
+            
+            with open(os.path.join(results_dir, 'robustness_results.json'), 'w') as f:
+                json.dump(robustness_metrics, f, indent=2)
+            
+            if args.few_shot_examples:
+                few_shot_results = wrapper.evaluate_few_shot(
+                    train_data,
+                    eval_data,
+                    n_examples_per_class=args.few_shot_examples
+                )
+                
+                with open(os.path.join(results_dir, 'few_shot_results.json'), 'w') as f:
+                    json.dump(few_shot_results, f, indent=2)
 
     elif args.method == 'ipet':
         pet.train_ipet(pet_model_cfg, pet_train_cfg, pet_eval_cfg, ipet_cfg, sc_model_cfg, sc_train_cfg, sc_eval_cfg,

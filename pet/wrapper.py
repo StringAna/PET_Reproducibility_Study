@@ -36,6 +36,9 @@ import log
 from pet import preprocessor
 from pet.tasks import TASK_HELPERS
 from pet.utils import InputFeatures, DictDataset, distillation_loss
+from pet.robustness import RobustnessEvaluator
+from collections import defaultdict
+import random
 
 logger = log.get_logger('root')
 
@@ -158,6 +161,8 @@ class TransformerModelWrapper:
     def __init__(self, config: WrapperConfig):
         """Create a new wrapper from the given config."""
         self.config = config
+        self.config = config
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Initialize AG News config if needed
         self.agnews_config = AGNewsConfig() if config.task_name == 'agnews' else None
@@ -196,6 +201,7 @@ class TransformerModelWrapper:
         """Load a pretrained wrapper from a given path."""
         wrapper = TransformerModelWrapper.__new__(TransformerModelWrapper)
         wrapper.config = wrapper._load_config(path)
+        wrapper.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         tokenizer_class = MODEL_CLASSES[wrapper.config.model_type]['tokenizer']
         model_class = MODEL_CLASSES[wrapper.config.model_type][wrapper.config.wrapper_type]
         wrapper.model = model_class.from_pretrained(path)
@@ -617,4 +623,53 @@ class TransformerModelWrapper:
         for token_id in self.agnews_config.special_token_ids:
             mask *= (input_ids != token_id).float()
         return mask
+    
+    def evaluate_robustness(self, eval_data: List[InputExample], perturbation_types: List[str] = None) -> Dict[str, float]:
+        evaluator = RobustnessEvaluator(self)  # Pass only self
+        return evaluator.evaluate_robustness(eval_data, perturbation_types)
         
+    def train_and_evaluate(self, train_data: List[InputExample], eval_data: List[InputExample]) -> Dict[str, float]:
+        """Train and evaluate with the provided data"""
+        results = {}
+        
+        # Only evaluate since we're using a pretrained model
+        eval_results = self.eval(
+            eval_data=eval_data,
+            device=self.device,
+            per_gpu_eval_batch_size=8,
+            n_gpu=1
+        )
+        
+        predictions = np.argmax(eval_results['logits'], axis=1)
+        labels = eval_results['labels']
+        results['accuracy'] = np.mean(predictions == labels)
+        
+        return results
+
+    def evaluate_few_shot(self, train_data: List[InputExample], eval_data: List[InputExample], 
+                        n_examples_per_class: List[int]) -> Dict[str, Dict[str, float]]:
+        """Evaluate performance with different numbers of examples per class"""
+        results = {}
+        
+        for n in n_examples_per_class:
+            logger.info(f"Evaluating with {n} examples per class...")
+            sampled_data = self._sample_few_shot_data(train_data, n)
+            metrics = self.train_and_evaluate(sampled_data, eval_data)
+            results[f'{n}_examples'] = metrics
+            
+        return results    
+    
+    def _sample_few_shot_data(self, data: List[InputExample], n_per_class: int) -> List[InputExample]:
+        """Sample n examples per class"""
+        by_label = defaultdict(list)
+        for ex in data:
+            by_label[ex.label].append(ex)
+            
+        sampled = []
+        for label in by_label:
+            if len(by_label[label]) >= n_per_class:
+                sampled.extend(random.sample(by_label[label], n_per_class))
+            else:
+                sampled.extend(by_label[label])
+                
+        return sampled

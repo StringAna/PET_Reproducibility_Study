@@ -1,0 +1,14 @@
+{
+  "10_examples": {
+    "accuracy": 0.88
+  },
+  "20_examples": {
+    "accuracy": 0.88
+  },
+  "50_examples": {
+    "accuracy": 0.88
+  },
+  "100_examples": {
+    "accuracy": 0.88
+  }
+}
