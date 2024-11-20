@@ -10,3 +10,4 @@ out/*
 venv/*
 data/*
 ag_news_csv/*
+output_hopper/*
