@@ -15,8 +15,13 @@
 \usepackage[hyperref]{acl2019}
 \usepackage{times}
 \usepackage{latexsym}
-
+\usepackage{makecell}
+\usepackage{multirow}
 \usepackage{url}
+\usepackage{booktabs}      % For better table rules
+\usepackage{siunitx}       % For number alignment
+\usepackage{multirow}      % For merged rows
+\usepackage{array}         % For table column formatting
 \usepackage{enumitem} % Required for custom list spacing
 \setlist[itemize]{itemsep=0em} % Applies to all itemize environments
 
@@ -53,9 +58,10 @@
 
 \section{Introduction}
 
-The paper addresses the challenge of few-shot learning in NLP tasks, where only a small, labeled dataset is available. The research question is:\\
+\citet{schick2021exploitingclozequestionsshot} addresses the challenge of few-shot learning in NLP tasks, where only a small, labeled dataset is available. The research question is:\\
 \textit{How can pre-trained language models (PLMs) like RoBERTa or BERT be adapted to excel at few-shot learning tasks using task-specific patterns and verbalizers? }\\
-The paper's main goal is to explore whether reformulating inputs as cloze-style questions can improve performance on tasks such as text classification and natural language inference (NLI) under low-resource conditions. 
+The paper's main goal is to explore whether reformulating inputs as cloze-style questions can improve performance on tasks such as text classification and natural language inference (NLI) under low-resource conditions. \\
+\href{https://github.com/StringAna/PET_Reproducibility_Study}{\textit{\textbf{Link to our codebase}}}~\cite{pet_reproduction2024}\\
             \subsection{Task / Research Question Description} 
             Core research questions are-\\
             - Can natural language task descriptions be effectively combined with supervised learning to improve few-shot text classification?\\
@@ -82,7 +88,7 @@ The paper's main goal is to explore whether reformulating inputs as cloze-style 
             \end{itemize}
             This approach enables few-shot learning by effectively combining human-readable patterns with the capabilities of large pre-trained models. 
             \subsection{Likely challenges and mitigations}
-            \begin{itemize}
+            \begin{itemize}[topsep=0pt]
               \item \textit{Computational Resources}\\Challenge: Training large models demands significant GPU power.
               \\Mitigation:Start with smaller models and subsets of patterns; use gradient accumulation.
               \item \textit{Implementation Complexity}\\Challenge:Multi-stage training with intricate interactions.\\
@@ -91,48 +97,134 @@ The paper's main goal is to explore whether reformulating inputs as cloze-style 
 
 
 \section{Related Work}
-Include 3-4 sentence descriptions of no less than 4 relevant papers (as applicable). Also mention how your work differs from these. Note that prior work should be properly cited in References, e.g., when you use the BERT model \cite{devlin2019bert} you could cite it in this way; if you want to refer to the authors of a certain paper, you should use \texttt{citet}, e.g., "\citet{devlin2019bert} proposed the BERT model." See \url{https://acl-org.github.io/ACLPUB/formatting.html} for instructions.
-\begin{itemize}
-  \item GPT-3 Few-Shot Learning Brown et al., \textit{"Language Models are Few-Shot Learners"}:This paper demonstrates the ability of GPT-3 to perform few-shot tasks using prompt-based learning. Unlike PET, it does not require task-specific fine-tuning, relying entirely on model size and carefully designed prompts. PET differs by using task-specific patterns and fine-tuning for better performance in low-resource settings. 
-  \item T5 Model Raffel et al., \textit{"Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer"}:T5 frames every NLP task as a text-to-text problem. While versatile, it requires fine-tuning on large datasets. PET, in contrast, uses minimal labeled data and focuses on few-shot performance. 
-  \item Meta-Learning Approaches,\textit{Finn et al., "Model-Agnostic Meta-Learning (MAML)"}: MAML trains models to adapt quickly to new tasks with few examples. PET achieves similar goals using patterns and verbalizers, avoiding the need for gradient-based task adaptation.PET differs and uniquely leverages cloze-style questions and semi-supervised learning to combine task-specific insights with pre-trained models, making it more interpretable and efficient for few-shot tasks. 
+\begin{itemize}[topsep=0pt]
+  \item \citet{radford2019language} introduced GPT-2, a language model capable of zero-shot learning by using task descriptions. However, it does not employ task-specific fine-tuning or semi-supervised learning, which PET utilizes to enhance few-shot performance.
+  \item \citet{mccann2018natural} reframed NLP tasks as question-answering, enabling multitask learning. But it requires substantial labeled data, while PET leverages cloze-style patterns and verbalizers to use pre-trained models effectively in low-resource settings.
+  \item  \citet{xie2020unsupervised}presented a semi-supervised approach using data augmentation. PET differs by leveraging cloze-style patterns and pre-trained language models, avoiding reliance on data augmentation.
+  \item \citet{zeng-zubiaga-2023-active} proposes "Active PETs", a weighted approach that uses an ensemble of PET models to actively select unlabeled data for annotation to improve few-shot claim verification. PET differs from traditional few-shot learning by reformulating tasks into cloze-style questions and using semi-supervised learning through iterative refinement to enhance performance with limited labeled data.
 \end{itemize}
 
 \section{Experiments}
 
 \subsection{Datasets}
-Please list which datasets you used, whether or not you have access them, and whether or not they are publicly available with the same preprocessing and train / dev / tests as the previous work you will be comparing to (if applicable). If you plan to collect your own dataset for evaluating robustness, please describe clearly the data plan (the data source, how you plan to collect it, how you would preprocess it for the task, etc.).
+For this assignment, we focused on AGNews dataset, and its subset of four major news categories - World, Sports, Business, and Technology/Science. The original PET paper evaluated performance over multiple datasets like Yahoo Answers and Yelp Reviews, our focused approach enabled an in-depth analysis within our limited computational and time constrains.
 
 \subsection{Implementation} 
-Please provide a link to a repo of your reimplementation (if applicable) and appropriately cite any resources you have used.
-
+Our study \cite{pet_reproduction2024} builds upon the original implementation provided by the original paper, using their publicly available codebase as our foundation which ensures reproducibility and maintain direct comparability with the original work while conducting our experiments, architectural modifications, robustness analysis, and error studies.
+\begin{itemize}[topsep=0pt]
+  \item \textit{Iteration 1} strictly follows the paper's configuration (100 training examples, batch sizes of 2/4, single epoch) to validate the reproducibility of the reported few-shot learning results. This is our baseline and allows us to verify PET's promise in low resource scenarios as claimed in the research.
+  \item \textit{Iteration 2} was done to explore beyond the paper's scope, deliberately increasing resources (200 training examples, batch sizes of 25/50, 3  epochs) to help us understand PET's behavior under enhanced conditions. This helps understand whether the orignial paper's conservative approach was optimal, or if PET's pattern-based approach could benefit from additional computational resources and training data.
+  \item \textit{Iteration 3} aimed to address some limitations within the paper. \\
+  -\textit{Pattern Contextualization and Robustness}:The original PET implementation used relatively simple patterns for news classification. Our enhanced pattern system introduces more natural, context-rich formulations like "What type of news is this?" and structured categorization patterns. This modification addresses a key limitation in the original paper-\textbf{the potential disconnect between pre-training objectives and downstream task formats}. With richer contextual patterns, we aim to better leverage RoBERTa's pre-trained knowledge of language structure and domain understanding.\\
+  -\textit{AGNews-Specific Optimizations}:A critical observation from the first two iterations was that the generic implementation might not fully exploit task-specific characteristics. The introduction of AGNewsConfig and specialized preprocessing demonstrates our hypothesis that news classification could benefit from domain-specific handling. The addition of special tokens like [DATA], [REPORT], and [NEWS] provides the model with explicit markers of document structure, potentially important for news article classification.\\
+  -\textit{Data Quality and Representation}:The enhanced preprocessing and metadata tracking represent a significant shift from the original implementation's approach to data handling. By implementing thorough text cleaning and tracking features like headline length and numerical content, we address potential noise in news data that might affect model performance. This is particularly crucial in few-shot scenarios where each training example carries significant weight in model learning.\\
+  -\textit{Verbalizer Validation and Flexibility}: The introduction of verifier mechanisms for single-token verbalizers and expanded label mappings (e.g., mapping "World" news to multiple relevant tokens like "Global" and "News") addresses a subtle but important limitation in the original implementation. This change provides more robust and flexible label representation, potentially allowing the model to capture different aspects of each news category.\\
+  -\textbf{Note:}These modifications maintain the same training configuration as Iteration 1 (reproducing the paper's setup), isolating the impact of architectural changes from training dynamics. This allows us to evaluate whether sophisticated pattern-verbalizer architectures and domain-specific optimizations can enhance performance even under conservative training conditions.
+\end{itemize}
 \subsection{Results}
-Provide a table comparing your results to the published results.
-
+\hyperref[tab:results]{Table~\ref{tab:results} displaying result comparison with the original paper.}
+\begin{table*}[t]
+  
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}|l|c|c|c|c|}
+  \hline
+  \textbf{Metric} & \textbf{\begin{tabular}[c]{@{}c@{}}Paper Results\\($|T| = 100$ for PET)\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Iteration 1\\($|T| = 100$)\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Iteration 2\\($|T| = 200$)\end{tabular}} & \textbf{\begin{tabular}[c]{@{}c@{}}Iteration 3\\($|T| = 100$)\end{tabular}} \\
+  \hline
+  Test Accuracy & 88.3\% $\pm$0.1 & 88\% $\pm$0.0 & 90\% $\pm$0.0 & 88\% $\pm$0.0 \\
+  \hline
+  Training Examples & 100 & 100 & 200 & 100 \\
+  \hline
+  Training Loss & Not reported & 0.0598 & 0.0667 & 0.0404 \\
+  \hline
+  Training Set Accuracy (Initial) & Not reported & 24\% & 19.5\% & 24\% \\
+  \hline
+  Training Set Accuracy (Final) & Not reported & 92\% & 94.5\% & 94\% \\
+  \hline
+  \multirow{3}{*}{Configuration} & RoBERTa-large & RoBERTa-large & RoBERTa-large & RoBERTa-large \\
+  & Multiple patterns & Pattern ID 0 & Pattern ID 0 & Modified patterns \\
+  & 1 epoch & 1 epoch & 3 epochs & 1 epoch \\
+  \hline
+  \end{tabular*}
+  
+  \caption{Comparison of experimental results with the original paper. \\Notes: $|T|$ represents the number of training examples. 
+  Paper results shown are for PET method (not iPET or supervised baselines). 
+  Iteration 1 and 3 directly compare with paper's $|T| = 100$ results. 
+  Iteration 2 uses more training examples (200) than reported configurations in the paper.\\}
+  \label{tab:results}
+  \vspace{-0.8cm}
+  \end{table*}
 \subsection{Discussion}
-Discuss any issues you faced. Do your results differ from the published ones? If yes, why do you think that is? Did you do a sensitivity analysis (e.g. multiple runs with different random seeds)?
+The first iteration successfully reproduced the paper's results (88\% ±0.0 vs 88.3\% ±0.1) with identical training conditions, validating PET's reproducibility. Our architectural modifications in Iteration 3 improved training efficiency (loss reduction from 0.0598 to 0.0404) while maintaining accuracy. Iteration 2 achieved higher accuracy (90\%) with more resources but increased training loss (0.0667), highlighting a performance-efficiency trade-off.
+
+Notable differences include our consistent test accuracy (±0.0 vs paper's ±0.1), likely due to our single-pattern approach versus the paper's multiple patterns. While this simplified implementation, it potentially reduced result variability. The results demonstrate PET's reproducibility and potential for enhancement, though careful consideration of resource-performance trade-offs is crucial in few-shot learning scenarios.
 
 \subsection{Resources}
 Discuss the cost of your reproduction in terms of resources: computation, time, people, development effort, communication with the authors (if applicable).
 
 
 \subsection{Error Analysis}
-Perform an error analysis on the model. Include at least 2-3 instances where the model fails. Discuss the error analysis in the paper -- what other analyses could the authors have ran? If you were able to perform additional error analyses, report it here.
+\begin{itemize}[topsep=0pt]
+  \item \textit{Training Loss vs Accuracy Trade-off}:Iteration 3's enhanced patterns achieved the lowest training loss (0.0404 vs 0.0598 in Iteration 1) without improving test accuracy (88\%), suggesting improved training efficiency doesn't necessarily translate to better generalization.
+  \item \textit{Resource Scaling Efficiency}: Doubling training data and tripling epochs in Iteration 2 yielded only 2\% accuracy improvement (90\%), indicating diminishing returns in resource-performance trade-offs.
+  \item \textit{Pattern Effectiveness}: While modified patterns improved training accuracy (94\% vs 92\%), test performance remained unchanged, suggesting pattern enhancement alone doesn't guarantee better generalization.
+\end{itemize}
+These findings indicate PET's performance bottlenecks may lie in the fundamental pattern-based approach rather than training optimization. Future work should focus on pattern ablation studies and category-specific performance analysis to better understand these limitations.
 
 \section{Robustness Study}
-Explain your approach for Evaluating the Model Robustness. Describe what robustness analysis you have performed. Provide sufficient details about your perturbation data, how you created it, how you used it as a robustness benchmark to evaluate the model, in what metrics, etc.
+Our robustness evaluation framework assessed the model's resilience to input perturbations across different iterations of our implementation, with particular focus on our best performing model (Iteration 2, 90\% accuracy). We designed two types of perturbation tests:
+\begin{itemize}[topsep=0pt]
+  \item \textit{Character-level Perturbation}: Random character replacements with 0.1 probability, simulating common text errors like typos and misspellings.
+  \item \textit{Word-level Perturbation}: Random word removals with 0.1 probability, testing model resilience to incomplete information
+\end{itemize}
+We systematically evaluated robustness across different training configurations (|T| = 10, 20, 50, 100) to understand how model stability correlates with training data size.
 
 \subsection{Results of Robustness Evaluation}
-Describe the evaluation results of your reproduced model on the robustness benchmark that you created. Include at least 2 examples where the model performs well and 2 examples where it fails (i.e., being not robust). Provide sufficient analysis and your thoughts on the observations.
-
+\begin{itemize}[topsep=0pt]
+  \item \textit{Baseline Performance}\\ 
+  - Consistent 88\% accuracy across different few-shot configurations (10-100 examples)\\
+  - Matches paper's reported performance (88.3\% ±0.1) for $|T|$ = 100\\
+  - Achieves 90\% accuracy with increased training data ($|T|$ = 200)
+  \item \textit{Robustness Results}\\
+  - Original Accuracy: 88\%\\
+  - Character Noise Impact: Drops to 4\% accuracy (95.5\% performance degradation)
+  - Word Dropout Impact: Complete failure (0\% accuracy)
+  \item \textit{Analysis: Successful Cases}\\ 
+  - Base Model Stability: The model shows remarkable consistency in performance across different training set sizes, maintaining 88\% accuracy from $|T|$ = 10 to $|T|$ = 100.\\
+  - Training Efficiency: Lower training loss in Iteration 3 (0.0404) compared to Iteration 1 (0.0598) suggests improved learning efficiency with our modifications.
+  \item \textit{Analysis: Critical Vulnerabilities}\\
+  - Severe Character Sensitivity: The dramatic drop to 4\% accuracy under character noise indicates brittle pattern matching rather than robust semantic understanding.\\
+  - Complete Word-level Failure: Zero accuracy under word dropout suggests the model lacks ability to handle incomplete information.
+\end{itemize}
+These results show that while our implementation improves the paper's accuracy, the model struggles with robustness to input perturbations. Strong performance on clean data (88-90\%) versus poor resilience to perturbations (0-4\%) highlights brittle dependencies in pattern-exploiting training for few-shot learning.
 \subsection{Discussion} 
-Provide any further discussion here, e.g., what challenges did you face when performing the analysis, and what could have been done if you will have more time on this project? Imagine you are writing this report to future researchers; be sure to include "generalizable insights" (e.g., broadly speaking, any tips or advice you'd like to share for researchers trying to analyze the robustness of an NLP model).
+Our robustness analysis revealed key insights and challenges for evaluating NLP models' robustness in few-shot learning scenarios:
+\begin{itemize}[topsep=0pt]
+  \item \textit{Key Challenges}:\\ 
+  - Pattern Dependency Trade-off: While PET's pattern-based approach enables effective few-shot learning, it creates vulnerability to input perturbations, suggesting a fundamental tension between pattern exploitation and input robustness.\\ 
+  - Evaluation Limitations: The dramatic performance drop from 88\% to 0-4\% under perturbations indicates current evaluation metrics may be too binary, missing nuanced degradation patterns.
+  \item \textit{Recommendations for Future Research}:\\ 
+  - Pattern Design: Implement redundant patterns capturing similar semantic information and design patterns accounting for common text variations.\\
+  - Testing Framework: Develop more nuanced evaluation metrics and expand perturbation types beyond character noise and word dropout. Consider domain-specific variations.
+  \item \textit{Future Directions}:\\ 
+  - Adaptive pattern selection based on input quality\\
+  - Hybrid approaches combining pattern-based and traditional learning\\
+  - Benchmarks specifically for few-shot learning robustness
+\end{itemize}
 
 \section{Workload Clarification}
-Describe how  the team divides the workload in this checkpoint. Note that each team member should contribute roughly the same amount of work to this assignment.
-
+\begin{itemize}
+  \item \textit{Code Implementation and Reproduction}: Each team member independently implemented the code, reproduced the paper’s results, and verified consistency across implementations.  
+  \item \textit{Report Writing}: Team members drafted separate sections, then collaboratively refined them into a cohesive, clear final report.  
+\end{itemize}
 \section{Conclusion}
-Is the paper reproducible?
+Our study reproduced the key findings of Pattern-Exploiting Training (PET), validating its effectiveness for few-shot text classification. We matched the original 88\% accuracy on AGNews with 100 examples, and achieved 90\% with 200 examples. However, our robustness analysis uncovered critical vulnerabilities - the model dropped from 88\% on clean data to 4\% and 0\% under character and word perturbations. This brittleness highlights a tension between PET's pattern-exploiting and the need for robust language understanding.
+The key takeaways are:
+\begin{itemize}[topsep=0pt]
+  \item PET is a reproducible and effective few-shot technique, but architectural refinements did not improve generalization.
+  \item PET's pattern-based nature makes it highly susceptible to input perturbations, underscoring the need for more robust few-shot learning approaches.
+\end{itemize}
 
 % \section{Credits}
 
