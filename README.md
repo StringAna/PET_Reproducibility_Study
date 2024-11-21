@@ -1,3 +1,96 @@
+# README
+
+This README provides instructions on how to run the code using three different command prompts. Each command runs a specific configuration of the `cli.py` script for training and evaluating a model using the PET (Pattern-Exploiting Training) method.
+
+## Prerequisites
+
+## download the data from the below link
+
+```sh
+wget https://drive.google.com/file/d/0Bz8a_Dbh9QhbUDNpeUdjb0wxRms/view?usp=drive_link&resourcekey=0-Q5sv-6rQnLTJArwcASJJow
+```
+
+Make sure you have the necessary dependencies installed. You can install them using:
+
+```sh
+pip install -r requirements.txt
+```
+
+## Command 1
+
+### This command trains and evaluates a RoBERTa model on the AG News dataset with 100 training examples and 50 test examples.
+
+```sh
+python cli.py --method pet \
+    --pattern_ids 0 \
+    --data_dir ag_news_csv/ \
+    --model_type roberta \
+    --model_name_or_path roberta-large \
+    --task_name agnews \
+    --output_dir output/agnews_pet \
+    --do_train \
+    --do_eval \
+    --train_examples 100 \
+    --test_examples 50 \
+    --pet_max_seq_length 128 \
+    --pet_per_gpu_train_batch_size 2 \
+    --pet_per_gpu_eval_batch_size 4 \
+    --pet_num_train_epochs 1 \
+    --logging_steps 10 \
+    --overwrite_output_dir
+```
+
+## Command 2
+
+### This command trains and evaluates a RoBERTa model on the AG News dataset with 200 training examples and 50 test examples.
+
+```sh
+python cli.py --method pet \
+    --pattern_ids 0 \
+    --data_dir ag_news_csv/ \
+    --model_type roberta \
+    --model_name_or_path roberta-large \
+    --task_name agnews \
+    --output_dir output/agnews_pet \
+    --do_train \
+    --do_eval \
+    --train_examples 200 \
+    --test_examples 50 \
+    --pet_max_seq_length 128 \
+    --pet_per_gpu_train_batch_size 25 \
+    --pet_per_gpu_eval_batch_size 50 \
+    --pet_num_train_epochs 3 \
+    --logging_steps 10 \
+    --output_dir output200
+```
+
+## Command 3
+
+### This command trains and evaluates a RoBERTa model on the AG News dataset with 100 training examples and 50 test examples, and evaluates the model's robustness with various perturbations.
+
+```sh
+python3 cli.py --method pet \
+    --pattern_ids 0 \
+    --data_dir ag_news_csv/ \
+    --model_type roberta \
+    --model_name_or_path roberta-large \
+    --task_name agnews \
+    --output_dir output/robustness \
+    --do_train \
+    --do_eval \
+    --train_examples 100 \
+    --test_examples 50 \
+    --pet_max_seq_length 128 \
+    --pet_per_gpu_train_batch_size 2 \
+    --pet_per_gpu_eval_batch_size 4 \
+    --pet_num_train_epochs 1 \
+    --logging_steps 10 \
+    --overwrite_output_dir \
+    --evaluate_robustness \
+    --perturbation_types character_noise word_dropout word_shuffle \
+    --few_shot_examples 10 20 50 100
+```
+
 # Pattern-Exploiting Training (PET)
 
 This repository contains the code for [Exploiting Cloze Questions for Few-Shot Text Classification and Natural Language Inference](https://arxiv.org/abs/2001.07676) and [It's Not Just Size That Matters: Small Language Models Are Also Few-Shot Learners](https://arxiv.org/abs/2009.07118). The papers introduce pattern-exploiting training (PET), a semi-supervised training procedure that reformulates input examples as cloze-style phrases. In low-resource settings, PET and iPET significantly outperform regular supervised training, various semi-supervised baselines and even GPT-3 despite requiring 99.9% less parameters. The iterative variant of PET (iPET) trains multiple generations of models and can even be used without any training data.
@@ -77,53 +170,54 @@ The command line interface `cli.py` in this repository currently supports three 
 To train and evaluate a PET model for one of the supported tasks, simply run the following command:
 
     python3 cli.py \
-	--method pet \
-	--pattern_ids $PATTERN_IDS \
-	--data_dir $DATA_DIR \
-	--model_type $MODEL_TYPE \
-	--model_name_or_path $MODEL_NAME_OR_PATH \
-	--task_name $TASK \
-	--output_dir $OUTPUT_DIR \
-	--do_train \
-	--do_eval
-    
- where
- - `$PATTERN_IDS` specifies the PVPs to use. For example, if you want to use *all* patterns, specify `PATTERN_IDS 0 1 2 3 4` for AG's News and Yahoo Questions or `PATTERN_IDS 0 1 2 3` for Yelp Reviews and MNLI.
- - `$DATA_DIR` is the directory containing the train and test files (check `tasks.py` to see how these files should be named and formatted for each task).
- - `$MODEL_TYPE` is the name of the model being used, e.g. `albert`, `bert` or `roberta`.
- - `$MODEL_NAME` is the name of a pretrained model (e.g., `roberta-large` or `albert-xxlarge-v2`) or the path to a pretrained model.
- - `$TASK_NAME` is the name of the task to train and evaluate on.
- - `$OUTPUT_DIR` is the name of the directory in which the trained model and evaluation results are saved.
- 
+    --method pet \
+    --pattern_ids $PATTERN_IDS \
+    --data_dir $DATA_DIR \
+    --model_type $MODEL_TYPE \
+    --model_name_or_path $MODEL_NAME_OR_PATH \
+    --task_name $TASK \
+    --output_dir $OUTPUT_DIR \
+    --do_train \
+    --do_eval
+
+where
+
+- `$PATTERN_IDS` specifies the PVPs to use. For example, if you want to use _all_ patterns, specify `PATTERN_IDS 0 1 2 3 4` for AG's News and Yahoo Questions or `PATTERN_IDS 0 1 2 3` for Yelp Reviews and MNLI.
+- `$DATA_DIR` is the directory containing the train and test files (check `tasks.py` to see how these files should be named and formatted for each task).
+- `$MODEL_TYPE` is the name of the model being used, e.g. `albert`, `bert` or `roberta`.
+- `$MODEL_NAME` is the name of a pretrained model (e.g., `roberta-large` or `albert-xxlarge-v2`) or the path to a pretrained model.
+- `$TASK_NAME` is the name of the task to train and evaluate on.
+- `$OUTPUT_DIR` is the name of the directory in which the trained model and evaluation results are saved.
+
 You can additionally specify various training parameters for both the ensemble of PET models corresponding to individual PVPs (prefix `--pet_`) and for the final sequence classification model (prefix `--sc_`). For example, the default parameters used for our SuperGLUE evaluation are:
- 
- 	--pet_per_gpu_eval_batch_size 8 \
-	--pet_per_gpu_train_batch_size 2 \
-	--pet_gradient_accumulation_steps 8 \
-	--pet_max_steps 250 \
-	--pet_max_seq_length 256 \
-    --pet_repetitions 3 \
-	--sc_per_gpu_train_batch_size 2 \
-	--sc_per_gpu_unlabeled_batch_size 2 \
-	--sc_gradient_accumulation_steps 8 \
-	--sc_max_steps 5000 \
-	--sc_max_seq_length 256 \
-    --sc_repetitions 1
-    
+
+--pet_per_gpu_eval_batch_size 8 \
+ --pet_per_gpu_train_batch_size 2 \
+ --pet_gradient_accumulation_steps 8 \
+ --pet_max_steps 250 \
+ --pet_max_seq_length 256 \
+ --pet_repetitions 3 \
+ --sc_per_gpu_train_batch_size 2 \
+ --sc_per_gpu_unlabeled_batch_size 2 \
+ --sc_gradient_accumulation_steps 8 \
+ --sc_max_steps 5000 \
+ --sc_max_seq_length 256 \
+ --sc_repetitions 1
+
 For each pattern `$P` and repetition `$I`, running the above command creates a directory `$OUTPUT_DIR/p$P-i$I` that contains the following files:
-  - `pytorch_model.bin`: the finetuned model, possibly along with some model-specific files (e.g, `spiece.model`, `special_tokens_map.json`)
-  - `wrapper_config.json`: the configuration of the model being used
-  - `train_config.json`: the configuration used for training
-  - `eval_config.json`: the configuration used for evaluation
-  - `logits.txt`: the model's predictions on the unlabeled data
-  - `eval_logits.txt`: the model's prediction on the evaluation data
-  - `results.json`: a json file containing results such as the model's final accuracy
-  - `predictions.jsonl`: a prediction file for the evaluation set in the SuperGlue format
-  
+
+- `pytorch_model.bin`: the finetuned model, possibly along with some model-specific files (e.g, `spiece.model`, `special_tokens_map.json`)
+- `wrapper_config.json`: the configuration of the model being used
+- `train_config.json`: the configuration used for training
+- `eval_config.json`: the configuration used for evaluation
+- `logits.txt`: the model's predictions on the unlabeled data
+- `eval_logits.txt`: the model's prediction on the evaluation data
+- `results.json`: a json file containing results such as the model's final accuracy
+- `predictions.jsonl`: a prediction file for the evaluation set in the SuperGlue format
+
 The final (distilled) model for each repetition `$I` can be found in `$OUTPUT_DIR/final/p0-i$I`, which contains the same files as described above.
 
 🚨 If your GPU runs out of memory during training, you can try decreasing both the `pet_per_gpu_train_batch_size` and the `sc_per_gpu_unlabeled_batch_size` while increasing both `pet_gradient_accumulation_steps` and `sc_gradient_accumulation_steps`.
-
 
 ### iPET Training and Evaluation
 
@@ -143,7 +237,7 @@ To evaluate a pretrained language model with the default PET patterns and verbal
 
 ### Priming
 
-If you want to use priming, remove the argument `--do_train` and add the arguments `--priming --no_distillation` so that all training examples are used for priming and no final distillation is performed. 
+If you want to use priming, remove the argument `--do_train` and add the arguments `--priming --no_distillation` so that all training examples are used for priming and no final distillation is performed.
 
 🚨 Remember that you may need to increase the maximum sequence length to a much larger value, e.g. `--pet_max_seq_length 5000`. This only works with language models that support such long sequences, e.g. XLNet. For using XLNet, you can specify `--model_type xlnet --model_name_or_path xlnet-large-cased --wrapper_type plm`.
 
@@ -153,12 +247,12 @@ Instead of using the command line interface, you can also directly use the PET A
 
 ## 🐶 Train your own PET
 
-To use PET for custom tasks, you need to define two things: 
+To use PET for custom tasks, you need to define two things:
 
 - a **DataProcessor**, responsible for loading training and test data. See `examples/custom_task_processor.py` for an example.
 - a **PVP**, responsible for applying patterns to inputs and mapping labels to natural language verbalizations. See `examples/custom_task_pvp.py` for an example.
 
-After having implemented the DataProcessor and the PVP, you can train a PET model using the command line as [described above](#pet-training-and-evaluation). Below, you can find additional information on how to define the two components of a PVP, *verbalizers* and *patterns*.
+After having implemented the DataProcessor and the PVP, you can train a PET model using the command line as [described above](#pet-training-and-evaluation). Below, you can find additional information on how to define the two components of a PVP, _verbalizers_ and _patterns_.
 
 ### Verbalizers
 
@@ -166,9 +260,9 @@ Verbalizers are used to map task labels to words in natural language. For exampl
 
 ```python
 VERBALIZER = {"+1": ["good"], "-1": ["bad"]}
-    
+
 def verbalize(self, label) -> List[str]:
-    return self.VERBALIZER[label]       
+    return self.VERBALIZER[label]
 ```
 
 Importantly, in PET's current version, verbalizers are by default restricted to **single tokens** in the underlying LMs vocabulary (for using more than one token, [see below](#pet-with-multiple-masks)). Given a language model's tokenizer, you can easily check whether a word corresponds to a single token by verifying that `len(tokenizer.tokenize(word)) == 1`.
@@ -194,7 +288,7 @@ If you do not want to use a pair of sequences, you can simply leave the second s
 def get_parts(self, example: InputExample):
     return [example.text_a, '.', example.text_b, '. Overall, it was ', self.mask], []
 ```
-            
+
 If you want to define several patterns, simply use the `PVP`s `pattern_id` attribute:
 
 ```python
@@ -218,30 +312,33 @@ def get_parts(self, example: InputExample):
 
 ### PET with Multiple Masks
 
-By default, the current implementation of PET and iPET only supports a fixed set of labels that is shared across all examples and verbalizers that correspond to a single token. 
+By default, the current implementation of PET and iPET only supports a fixed set of labels that is shared across all examples and verbalizers that correspond to a single token.
 However, for some tasks it may be necessary to use verbalizers that correspond to multiple tokens ([as described here](http://arxiv.org/abs/2009.07118)).
 To do so, you simply need the following two modifications:
 
-1) Add the following lines in your task's **DataProcessor** (see `examples/custom_task_processor.py`):
- 
+1. Add the following lines in your task's **DataProcessor** (see `examples/custom_task_processor.py`):
+
    ```python
    from pet.tasks import TASK_HELPERS
    from pet.task_helpers import MultiMaskTaskHelper
    TASK_HELPERS['my_task'] = MultiMaskTaskHelper
    ```
-   where ```'my_task'``` is the name of your task. 
 
-2) In your **PVP**, make sure that the ``get_parts()`` method always inserts **the maximum number of mask tokens** required for any verbalization. For example, if your verbalizer maps ``+1`` to "really awesome" and ``-1`` to "terrible" and if those are tokenized as ``["really", "awe", "##some"]`` and ``["terrible"]``, respectively, your ``get_parts()`` method should always return a sequence that contains exactly 3 mask tokens.
+   where `'my_task'` is the name of your task.
+
+2. In your **PVP**, make sure that the `get_parts()` method always inserts **the maximum number of mask tokens** required for any verbalization. For example, if your verbalizer maps `+1` to "really awesome" and `-1` to "terrible" and if those are tokenized as `["really", "awe", "##some"]` and `["terrible"]`, respectively, your `get_parts()` method should always return a sequence that contains exactly 3 mask tokens.
 
 With this modification, you can now use verbalizers consisting of multiple tokens:
+
 ```python
 VERBALIZER = {"+1": ["really good"], "-1": ["just bad"]}
 ```
+
 However, there are several limitations to consider:
 
-- When using a ``MultiMaskTaskHelper``, the maximum batch size for evaluation is 1.
+- When using a `MultiMaskTaskHelper`, the maximum batch size for evaluation is 1.
 - As using multiple masks requires multiple forward passes during evaluation, the time required for evaluation scales about linearly with the length of the longest verbalizer. If you require verbalizers that consist of 10 or more tokens, [using a generative LM](https://arxiv.org/abs/2012.11926) might be a better approach.
-- The ``MultiMaskTaskHelper`` class is an experimental feature that is not thoroughly tested. In particular, this feature has only been tested for PET and not for iPET. If you observe something strange, please raise an issue.
+- The `MultiMaskTaskHelper` class is an experimental feature that is not thoroughly tested. In particular, this feature has only been tested for PET and not for iPET. If you observe something strange, please raise an issue.
 
 For more flexibility, you can also write a custom `TaskHelper`. As a starting point, you can check out the classes `CopaTaskHelper`, `WscTaskHelper` and `RecordTaskHelper` in `pet/task_helpers.py`.
 
